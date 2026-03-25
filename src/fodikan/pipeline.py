@@ -784,7 +784,7 @@ def make_eval_loader(X: np.ndarray, y: np.ndarray, batch_size: int) -> DataLoade
 
 
 # =============================================================================
-# BOmGene: mRMR -> Boruta (fold-local)
+# BOmGene: (fold-local)
 # =============================================================================
 def _bh_fdr(pvals: np.ndarray, alpha: float) -> Tuple[np.ndarray, float]:
     pvals = np.asarray(pvals, dtype=float)
