@@ -1,3 +1,5 @@
+# External spline / RBF KAN backbones
+# ChebyshevKAN is implemented locally in src/fodikan/models/chebyshev_kan.py
 git+https://github.com/Blealtan/efficient-kan.git
 git+https://github.com/ZiyaoLi/fast-kan.git
 git+https://github.com/AthanasiosDelis/faster-kan.git
