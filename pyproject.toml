@@ -3,11 +3,11 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "fodikan"
-version = "0.1.0"
-description = "FoDiKAN experiment runner with SMOTE-family augmentation, KAN backbones, and integrated MLP controls."
-requires-python = ">=3.10"
+name = "FoDiKAN"
+version = "0.2.0"
+description = "Modular FoDiKAN pipeline with balanced baselines, ChebyshevKAN, and TabDDPM support."
 readme = "README.md"
+requires-python = ">=3.10"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
