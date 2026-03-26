@@ -10,7 +10,6 @@ setuptools>=68
 wheel>=0.42
 
 # External KAN backbones
-# EfficientKAN / FastKAN / FasterKAN are optional if you only run classical models or ChebyshevKAN.
 git+https://github.com/Blealtan/efficient-kan.git
 git+https://github.com/ZiyaoLi/fast-kan.git
 git+https://github.com/AthanasiosDelis/faster-kan.git
