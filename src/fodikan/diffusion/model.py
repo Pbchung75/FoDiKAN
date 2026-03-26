@@ -31,7 +31,7 @@ class DiffusionConfig:
     ddim_steps: int = 50
     ddim_eta: float = 0.0
     start_t_ratio_steps: float = 0.5
-    seed: int = 42
+    seed: int = 2025
     alignment_bins: int = 32
 
 def pick_diffusion_config(

@@ -27,7 +27,12 @@ def macro_f1_defined(y: np.ndarray, num_classes: int) -> bool:
     return bool(np.all(counts > 0))
 
 def choose_size_aware_cv(y: np.ndarray, seed: int) -> Tuple[Any, str]:
- 
+    """
+    Paper-style outer-CV policy:
+    - largest feasible StratifiedKFold with k in {10,5,4,3,2}
+    - otherwise largest feasible KFold with k in {10,5,4,3,2}
+    - otherwise LOOCV
+    """
     y = np.asarray(y, dtype=int)
     n = len(y)
     counts = np.unique(y, return_counts=True)[1] if n > 0 else np.array([], dtype=int)
@@ -47,7 +52,13 @@ def safe_train_val_split_indices(
     val_ratio: float,
     seed: int,
 ) -> Tuple[np.ndarray, np.ndarray, Dict[str, Any]]:
-
+    """
+    Create real-only (D_tr, D_val) split.
+    We adjust the realized validation size to ensure:
+    - at least one validation sample per class
+    - at least one remaining real training sample per class
+    If infeasible, we return D_val = empty and let the caller use inner CV on D_tr only.
+    """
     y = np.asarray(y_train_outer, dtype=int)
     n = len(y)
     idx = np.arange(n, dtype=int)

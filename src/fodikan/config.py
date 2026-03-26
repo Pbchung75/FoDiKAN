@@ -92,18 +92,18 @@ def parse_args() -> Args:
     p.add_argument(
         "--models",
         nargs="*",
-        default=["SVM", "RF", "GB", "XGB", "EfficientKAN", "FastKAN", "FasterKAN"],
+        default=["SVM", "SVM-balanced", "RF", "RF-balanced", "GB", "XGB", "EfficientKAN", "FastKAN", "FasterKAN", "ChebyshevKAN"],
         help="Models to run.",
     )
     p.add_argument(
         "--modes",
         nargs="*",
         default=["NoAug", "DiffAug"],
-        choices=["NoAug", "DiffAug", "DiffAug-noAlign", "SMOTE", "BorderlineSMOTE", "KMeansSMOTE"],
+        choices=["NoAug", "DiffAug", "DiffAug-noAlign", "SMOTE", "BorderlineSMOTE", "KMeansSMOTE", "TabDDPM"],
         help=(
             "Training modes for KAN backbones. "
             "Supported augmentation baselines are NoAug, DiffAug, DiffAug-noAlign, SMOTE, "
-            "BorderlineSMOTE, and KMeansSMOTE. Classical baselines still run in NoAug only."
+            "BorderlineSMOTE, KMeansSMOTE, and TabDDPM. Classical baselines still run in NoAug only."
         ),
     )
 
@@ -231,7 +231,7 @@ def parse_args() -> Args:
         log_file=str(ns.log_file or ""),
     )
 
-AUGMENT_MODES = {"DiffAug", "DiffAug-noAlign", "SMOTE", "BorderlineSMOTE", "KMeansSMOTE"}
+AUGMENT_MODES = {"DiffAug", "DiffAug-noAlign", "SMOTE", "BorderlineSMOTE", "KMeansSMOTE", "TabDDPM"}
 
 DIFFUSION_MODES = {"DiffAug", "DiffAug-noAlign"}
 

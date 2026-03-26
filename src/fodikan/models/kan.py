@@ -8,10 +8,11 @@ from typing import Any, Dict, Optional, Sequence
 
 import torch
 
+from fodikan.models.chebyshev_kan import ChebyshevKAN
 from fodikan.utils.repro import DEVICE
 
 
-KAN_MODEL_NAMES = {"EfficientKAN", "FastKAN", "FasterKAN"}
+KAN_MODEL_NAMES = {"EfficientKAN", "FastKAN", "FasterKAN", "ChebyshevKAN"}
 
 
 _KAN_IMPORT_CACHE: Optional[Dict[str, Any]] = None
@@ -66,6 +67,13 @@ def build_kan_model(
     num_classes: int,
     extra_paths: Sequence[str],
 ) -> torch.nn.Module:
+    if model_name == "ChebyshevKAN":
+        return ChebyshevKAN(
+            layers_hidden=[input_dim, 128, 64, num_classes],
+            degree=5,
+            input_normalization="tanh",
+        ).to(DEVICE)
+
     classes = get_kan_classes(extra_paths)
 
     if model_name == "EfficientKAN":
@@ -114,5 +122,6 @@ def build_kan_model(
             base_activation=torch.nn.SiLU(),
             spline_weight_init_scale=1.0,
         ).to(DEVICE)
+
 
     raise ValueError(f"Unsupported KAN model: {model_name}")

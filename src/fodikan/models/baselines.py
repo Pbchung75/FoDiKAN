@@ -22,26 +22,36 @@ def fit_predict_baseline(
     num_classes: int,
     seed: int,
 ) -> np.ndarray:
-    if model_name == "SVM":
+    if model_name in {"SVM", "SVM-fixed", "SVM (fixed)"}:
         clf = SVC(C=10.0, gamma="scale", kernel="rbf", class_weight=None)
-    elif model_name == "SVM-balanced":
+    elif model_name in {"SVM-balanced", "SVM (balanced)"}:
         clf = SVC(C=10.0, gamma="scale", kernel="rbf", class_weight="balanced")
-    elif model_name == "RF":
+    elif model_name in {"RF", "RF-fixed", "RF (fixed)"}:
         clf = RandomForestClassifier(
             n_estimators=500,
             max_features="sqrt",
             min_samples_leaf=1,
+            class_weight=None,
             random_state=seed,
             n_jobs=-1,
         )
-    elif model_name == "GB":
+    elif model_name in {"RF-balanced", "RF (balanced)"}:
+        clf = RandomForestClassifier(
+            n_estimators=500,
+            max_features="sqrt",
+            min_samples_leaf=1,
+            class_weight="balanced_subsample",
+            random_state=seed,
+            n_jobs=-1,
+        )
+    elif model_name in {"GB", "GB-fixed", "GB (fixed)"}:
         clf = GradientBoostingClassifier(
             n_estimators=500,
             learning_rate=0.05,
             max_depth=3,
             random_state=seed,
         )
-    elif model_name == "XGB":
+    elif model_name in {"XGB", "XGB-fixed", "XGB (fixed)"}:
         if not HAS_XGBOOST:
             raise ImportError("xgboost is not installed. Install it or remove XGB from --models.")
         kwargs = dict(

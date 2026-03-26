@@ -119,7 +119,11 @@ def select_epoch_by_inner_cv(
     args: Args,
     aug_mode: Optional[str],
 ) -> Tuple[int, str]:
-
+    """
+    When D_val is infeasible, select epoch by inner CV on D_tr only.
+    The validation part of each inner fold is always real-only.
+    For DiffAug, synthetic samples are generated only from the inner training split.
+    """
     y_real = np.asarray(y_real, dtype=np.int64)
     if len(y_real) < 4 or len(np.unique(y_real)) < 2:
         return int(args.num_epochs), "fixed_fallback"

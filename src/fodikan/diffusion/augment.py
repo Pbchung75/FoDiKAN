@@ -14,7 +14,7 @@ from sklearn.cluster import HDBSCAN as SklearnHDBSCAN, KMeans
 from sklearn.neighbors import NearestNeighbors
 
 from fodikan.config import Args, is_diffusion_mode, resolve_diffusion_lambdas
-from fodikan.diffusion.model import DiffusionConfig, DiffusionDenoiser, pick_diffusion_config, train_diffusion_on_fold
+from fodikan.diffusion.model import DiffusionConfig, DiffusionDenoiser, get_beta_schedule, pick_diffusion_config, train_diffusion_on_fold
 from fodikan.utils.repro import DEVICE
 
 try:
@@ -357,6 +357,186 @@ def _starting_kmeans_cluster_count(n_samples: int, requested: int) -> int:
         return 1
     return int(max(1, min(int(requested), int(n_samples))))
 
+@torch.no_grad()
+def ddpm_sample_from_noise(
+    model: DiffusionDenoiser,
+    n_samples: int,
+    dim: int,
+    y_cond: torch.Tensor,
+    T: int,
+) -> torch.Tensor:
+    model.eval()
+    betas, a_cum = get_beta_schedule(T)
+    alphas = 1.0 - betas
+    x_t = torch.randn((n_samples, dim), device=DEVICE)
+
+    for t in reversed(range(T)):
+        tt = torch.full((n_samples,), int(t), dtype=torch.long, device=DEVICE)
+        eps = model(x_t, tt, y_cond, None)
+        alpha_t = alphas[t]
+        alpha_bar_t = a_cum[t]
+
+        if t == 0:
+            x_t = (x_t - torch.sqrt(1.0 - alpha_bar_t) * eps) / torch.sqrt(alpha_bar_t + 1e-8)
+            continue
+
+        alpha_bar_prev = a_cum[t - 1]
+        coef = (1.0 - alpha_t) / torch.sqrt(1.0 - alpha_bar_t + 1e-8)
+        mean = (x_t - coef * eps) / torch.sqrt(alpha_t + 1e-8)
+        var = ((1.0 - alpha_bar_prev) / (1.0 - alpha_bar_t + 1e-8)) * (1.0 - alpha_t)
+        noise = torch.randn_like(x_t)
+        x_t = mean + torch.sqrt(torch.clamp(var, min=1e-12)) * noise
+
+    return x_t
+
+def augment_training_set_tabddpm(
+    dataset_id: str,
+    fold_idx: int,
+    X_tr_fs: np.ndarray,
+    y_tr: np.ndarray,
+    feature_names: List[str],
+    args: Args,
+    synth_out_dir: Optional[str],
+    save_synth: bool,
+) -> AugmentationResult:
+    X_real = np.asarray(X_tr_fs, dtype=np.float32)
+    y_real = np.asarray(y_tr, dtype=np.int64)
+
+    real_counts = {int(k): int(v) for k, v in Counter(y_real.tolist()).items()}
+    quota, quota_meta = compute_minority_only_quota(
+        y_real,
+        gamma=1.0,
+        min_real_for_synthesis=args.min_real_for_synthesis,
+    )
+    guard_counts = {int(k): int(v) for k, v in quota_meta.get("guarded_class_counts", {}).items()}
+
+    meta: Dict[str, Any] = {
+        "use_synthesis": True,
+        "augmenter": "TabDDPM",
+        "balancing": "to_max",
+        "sampler": "ancestral_ddpm",
+        "gamma": 1.0,
+        "w_syn": float(args.w_syn),
+        "min_real_for_synthesis": int(args.min_real_for_synthesis),
+        "quota_target": int(quota_meta.get("target", 0)),
+        "real_counts": real_counts,
+        "quota": {int(k): int(v) for k, v in quota.items()},
+        "sampling_strategy": _quota_to_sampling_strategy(y_real, quota),
+        "guarded_classes": [int(x) for x in quota_meta.get("guarded_classes", [])],
+        "guarded_class_counts": guard_counts,
+        "syn_pre_counts": {},
+        "syn_post_counts": {},
+        "n_syn_pre_total": 0,
+        "n_syn_post_total": 0,
+        "n_syn": 0,
+        "note": "",
+    }
+
+    if sum(int(v) for v in quota.values()) <= 0:
+        meta["note"] = "No positive quota after to-max minority allocation."
+        return AugmentationResult(
+            X_aug=X_real,
+            y_aug=y_real,
+            w_aug=np.ones(len(y_real), dtype=np.float32),
+            X_syn=None,
+            y_syn=None,
+            meta=meta,
+        )
+
+    cfg = pick_diffusion_config(
+        len(y_real),
+        alignment_bins=args.alignment_bins,
+        seed=args.seed + 30000 + int(fold_idx),
+        lambda_js=0.0,
+        lambda_mmd=0.0,
+    )
+    cfg.self_condition = False
+
+    model_g, _a_cum = train_diffusion_on_fold(X_real, y_real, cfg)
+
+    parts_X: List[np.ndarray] = []
+    parts_y: List[np.ndarray] = []
+    for c, q in sorted(quota.items()):
+        n_target = int(q)
+        if n_target <= 0:
+            continue
+        remaining = n_target
+        while remaining > 0:
+            m = min(1024, remaining)
+            y_cond = torch.full((m,), int(c), dtype=torch.long, device=DEVICE)
+            x_gen = ddpm_sample_from_noise(
+                model=model_g,
+                n_samples=m,
+                dim=int(X_real.shape[1]),
+                y_cond=y_cond,
+                T=cfg.T,
+            )
+            parts_X.append(x_gen.detach().cpu().numpy().astype(np.float32, copy=False))
+            parts_y.append(np.full(m, int(c), dtype=np.int64))
+            remaining -= m
+
+    del model_g
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+    if not parts_X:
+        meta["note"] = "TabDDPM returned no synthetic samples on this fold."
+        return AugmentationResult(
+            X_aug=X_real,
+            y_aug=y_real,
+            w_aug=np.ones(len(y_real), dtype=np.float32),
+            X_syn=None,
+            y_syn=None,
+            meta=meta,
+        )
+
+    X_syn = np.vstack(parts_X).astype(np.float32, copy=False)
+    y_syn = np.concatenate(parts_y).astype(np.int64, copy=False)
+    syn_counts = Counter(y_syn.tolist())
+    meta["syn_pre_counts"] = {int(k): int(v) for k, v in syn_counts.items()}
+    meta["syn_post_counts"] = {int(k): int(v) for k, v in syn_counts.items()}
+    meta["n_syn_pre_total"] = int(len(y_syn))
+    meta["n_syn_post_total"] = int(len(y_syn))
+    meta["n_syn"] = int(len(y_syn))
+    if guard_counts:
+        meta["note"] = (
+            f"Rare-class guard applied before TabDDPM: quota=0 for classes {guard_counts} "
+            f"with fewer than {int(args.min_real_for_synthesis)} real samples in D_tr."
+        )
+
+    X_aug = np.vstack([X_real, X_syn])
+    y_aug = np.concatenate([y_real, y_syn])
+    w_aug = np.concatenate([
+        np.ones(len(y_real), dtype=np.float32),
+        np.full(len(y_syn), float(args.w_syn), dtype=np.float32),
+    ])
+
+    if save_synth and synth_out_dir:
+        try:
+            save_synth_bundle(
+                out_dir=synth_out_dir,
+                dataset_id=dataset_id,
+                fold_idx=fold_idx,
+                mode="TabDDPM",
+                X_real=X_real,
+                y_real=y_real,
+                X_syn=X_syn,
+                y_syn=y_syn,
+                feature_names=feature_names,
+                meta=meta,
+            )
+        except Exception:
+            pass
+
+    return AugmentationResult(
+        X_aug=X_aug,
+        y_aug=y_aug,
+        w_aug=w_aug,
+        X_syn=X_syn,
+        y_syn=y_syn,
+        meta=meta,
+    )
+
 def augment_training_set_smote_family(
     mode: str,
     dataset_id: str,
@@ -378,9 +558,10 @@ def augment_training_set_smote_family(
     y_real = np.asarray(y_tr, dtype=np.int64)
 
     real_counts = {int(k): int(v) for k, v in Counter(y_real.tolist()).items()}
+    gamma_eff = 1.0 if mode == "KMeansSMOTE" else float(args.gamma)
     quota, quota_meta = compute_minority_only_quota(
         y_real,
-        gamma=args.gamma,
+        gamma=gamma_eff,
         min_real_for_synthesis=args.min_real_for_synthesis,
     )
     strategy = _quota_to_sampling_strategy(y_real, quota)
@@ -394,7 +575,8 @@ def augment_training_set_smote_family(
         "filter_knn": False,
         "knn_k": np.nan,
         "keep_q": np.nan,
-        "gamma": float(args.gamma),
+        "gamma": float(gamma_eff),
+        "balancing": "to_max" if mode == "KMeansSMOTE" else "gamma_overshoot",
         "w_syn": float(args.w_syn),
         "min_real_for_synthesis": int(args.min_real_for_synthesis),
         "quota_target": int(quota_meta.get("target", 0)),
@@ -613,6 +795,17 @@ def augment_training_set_by_mode(
             synth_out_dir=synth_out_dir,
             save_synth=save_synth,
             mode_label=str(mode),
+        )
+    if mode == "TabDDPM":
+        return augment_training_set_tabddpm(
+            dataset_id=dataset_id,
+            fold_idx=fold_idx,
+            X_tr_fs=X_tr_fs,
+            y_tr=y_tr,
+            feature_names=feature_names,
+            args=args,
+            synth_out_dir=synth_out_dir,
+            save_synth=save_synth,
         )
     if mode in {"SMOTE", "BorderlineSMOTE", "KMeansSMOTE"}:
         return augment_training_set_smote_family(

@@ -1,10 +1,5 @@
-"""Model helpers for FoDiKAN."""
+"""Model helpers and backbones."""
 
-from .mlp import PlainMLP, count_trainable_parameters, count_mlp_parameters, solve_ratio_preserving_two_hidden_mlp
+from .chebyshev_kan import ChebyshevKAN
 
-__all__ = [
-    "PlainMLP",
-    "count_trainable_parameters",
-    "count_mlp_parameters",
-    "solve_ratio_preserving_two_hidden_mlp",
-]
+__all__ = ["ChebyshevKAN"]

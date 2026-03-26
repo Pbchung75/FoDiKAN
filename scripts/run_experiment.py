@@ -8,6 +8,5 @@ if str(SRC) not in sys.path:
 
 from fodikan.pipeline import main
 
-
 if __name__ == "__main__":
     main()

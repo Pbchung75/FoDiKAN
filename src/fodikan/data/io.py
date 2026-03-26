@@ -131,7 +131,15 @@ def list_input_files(base_dir: str) -> List[str]:
     return out
 
 def discover_inputs(base_dir: str, dataset_ids: Optional[List[str]] = None) -> List[InputItem]:
+    """
+    Discover datasets under base_dir.
 
+    Supported preferred layout:
+        base_dir/<dataset_id>/data.trn.gz
+
+    If such subdirectories are found, they are used preferentially. Otherwise the
+    function falls back to flat CSV/TSV/TXT/XLSX files directly under base_dir.
+    """
     items: List[InputItem] = []
     if not os.path.isdir(base_dir):
         return items
