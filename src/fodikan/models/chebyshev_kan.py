@@ -1,9 +1,7 @@
 """Local ChebyshevKAN implementation used as a polynomial-family KAN comparator."""
 
 from __future__ import annotations
-
 from typing import Iterable, List, Sequence
-
 import torch
 
 
