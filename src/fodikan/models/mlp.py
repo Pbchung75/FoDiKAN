@@ -1,9 +1,5 @@
-"""Optional MLP controls extracted from the backbone-fairness code path."""
-
 from __future__ import annotations
-
 from typing import Any, Dict, List, Sequence, Tuple
-
 import torch
 
 
