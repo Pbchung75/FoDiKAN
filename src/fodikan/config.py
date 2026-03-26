@@ -1,16 +1,11 @@
-"""Command-line configuration for FoDiKAN."""
-
 from __future__ import annotations
-
 import argparse
 import os
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
-
 DEFAULT_DATA_DIR = os.getenv("FODIKAN_DATA_DIR", "data")
 BASE_RESULTS_PATH = os.getenv("FODIKAN_RESULTS_DIR", "results")
-
 
 @dataclass
 class Args:
