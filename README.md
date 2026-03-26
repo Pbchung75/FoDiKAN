@@ -1,5 +1,6 @@
 # FoDiKAN
-Abstract
+Abstract:
+
 Gene-expression classification underpins functional genomics, disease subtyping, and
 biomarker discovery from transcriptomic profiles. Public microarray repositories facilitate
 benchmarking, but many cohorts are high-dimensional, small-sample, and severely
