@@ -1,14 +1,10 @@
-"""Training loops and epoch selection for KAN backbones."""
 
 from __future__ import annotations
-
 import copy
 from typing import Dict, List, Tuple
-
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
-
 from fodikan.config import Args
 from fodikan.data.cv import choose_size_aware_cv, fixed_label_metrics, macro_f1_defined
 from fodikan.data.loaders import make_eval_loader, make_loader_with_weights
