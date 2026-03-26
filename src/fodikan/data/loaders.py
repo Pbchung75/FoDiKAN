@@ -1,13 +1,8 @@
-"""PyTorch data loader utilities."""
-
 from __future__ import annotations
-
 from typing import Optional
-
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, TensorDataset
-
 from fodikan.utils.repro import DEVICE
 
 
