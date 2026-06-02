@@ -25,7 +25,7 @@ Across 25 microarray datasets, we evaluate FoDiKAN under SafeCV against referenc
 The graphical abstract summarizes the FoDiKAN workflow, including leakage-safe cross-validation, fold-local preprocessing and feature selection, class-conditional diffusion augmentation, geometry-aware filtering, and weighted downstream classification with KAN-based models.
 
 <p align="center">
-  <img src="Materials/Graphical_abstract.png" alt="Graphical abstract of the FoDiKAN framework" width="900">
+  <img src="Materials/Graphical_abstract .png" alt="Graphical abstract of the FoDiKAN framework" width="900">
 </p>
 
 <p align="center">
